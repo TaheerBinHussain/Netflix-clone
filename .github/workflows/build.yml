@@ -1,4 +1,4 @@
-name: Build
+name: Build & Deploy
 
 on:
   push:
@@ -12,36 +12,35 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
 
       - uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: install trivy
+      - name: Install Trivy
         run: |
-          # install trivy
           sudo apt-get install wget apt-transport-https gnupg lsb-release -y
           wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install trivy -y
-          # command to scan files
           trivy fs .
 
       - name: Docker build and push
         run: |
-          # run commands to build and push docker images
           docker build --build-arg TMDB_V3_API_KEY=d0e2cddd91d09515667fff85326209ba -t netflix .
           docker tag netflix taheer12/netflix:latest
-          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+          echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           docker push taheer12/netflix:latest
         env:
           DOCKER_CLI_ACI: 1
 
   deploy:
-    runs-on: [aws-netflix]
+    name: Deploy
+    needs: build   # ✅ ensures build finishes first
+    runs-on: [aws-netflix]   # ✅ must exist on your EC2
     steps:
       - name: Pull the docker image
         run: docker pull taheer12/netflix:latest
