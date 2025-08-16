@@ -39,7 +39,7 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: build   # ✅ ensures build finishes first
+    needs: build
     runs-on: [self-hosted, netflix]   
     steps:
       - name: Pull the docker image
